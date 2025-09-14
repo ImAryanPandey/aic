@@ -1,9 +1,9 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from "groq-sdk";
 import redisService from './redisService.js';
 import chatService from './chatService.js';
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Groq
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 class AIService {
   // Generate AI response for a user message
@@ -21,8 +21,8 @@ class AIService {
         };
       }
       
-      // Generate response using Gemini
-      const response = await this.callGeminiAPI(message, conversationHistory, context);
+      // Generate response using Groq
+      const response = await this.callGroqAPI(message, conversationHistory, context);
       
       // Save AI response to database
       await chatService.addMessage(conversationId, 'AI', response, 'ai');
@@ -51,8 +51,8 @@ class AIService {
       
       // Format for AI consumption
       const history = messages.map(msg => ({
-        role: msg.messageType === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }]
+        role: msg.messageType === 'user' ? 'user' : 'assistant',
+        content: msg.content
       }));
       
       // Cache in Redis for 5 minutes
@@ -65,8 +65,8 @@ class AIService {
     }
   }
 
-  // Call Gemini API
-  async callGeminiAPI(message, history, context) {
+  // Call Groq API
+  async callGroqAPI(message, history, context) {
     try {
       // Check for cached response first
       const cachedResponse = await redisService.getCachedAIResponse(message);
@@ -74,30 +74,37 @@ class AIService {
         return cachedResponse;
       }
       
-      // Get the model
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      
-      // Start a chat with history
-      const chat = model.startChat({
-        history: history,
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024,
+      // Create the conversation messages
+      const messages = [
+        {
+          role: "system",
+          content: context.systemPrompt
         },
+        ...history.slice(-10), // Include last 10 messages for context
+        {
+          role: "user",
+          content: message
+        }
+      ];
+      
+      // Get completion from Groq
+      const completion = await groq.chat.completions.create({
+        messages,
+        model: "llama3-8b-8192", // You can also use "mixtral-8x7b-32768" or "gemma-7b-it"
+        temperature: 0.7,
+        max_tokens: 1024,
+        top_p: 1,
+        stream: false
       });
       
-      // Generate response
-      const result = await chat.sendMessage(message);
-      const response = result.response.text();
+      const response = completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
       
       // Cache the response
       await redisService.cacheAIResponse(message, response);
       
       return response;
     } catch (error) {
-      console.error('Error calling Gemini API:', error);
+      console.error('Error calling Groq API:', error);
       throw new Error('Failed to get AI response');
     }
   }
@@ -150,7 +157,7 @@ class AIService {
       // Extract relevant context from history
       const relevantContext = history
         .slice(-5) // Get last 5 messages
-        .map(msg => `${msg.role}: ${msg.parts[0].text}`)
+        .map(msg => `${msg.role}: ${msg.content}`)
         .join('\n');
       
       return relevantContext;

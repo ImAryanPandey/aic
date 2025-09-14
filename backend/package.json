@@ -13,11 +13,11 @@
   "license": "ISC",
   "packageManager": "pnpm@10.15.0",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "bullmq": "^5.58.5",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "groq-sdk": "^0.32.0",
     "mongoose": "^8.18.1",
     "redis": "^5.8.2",
     "socket.io": "^4.8.1"
