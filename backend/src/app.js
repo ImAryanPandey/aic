@@ -16,6 +16,14 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/chat', chatRoutes);
 
+// Test route
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Backend is working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Basic route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to AI Chatbot API' });

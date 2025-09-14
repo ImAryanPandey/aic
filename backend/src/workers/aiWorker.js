@@ -1,10 +1,14 @@
 import { Worker } from 'bullmq';
 import aiService from '../services/aiService.js';
 
+console.log('Initializing AI Worker...');
+
 // Create a worker to process AI requests
 const aiWorker = new Worker(
   'ai-queue',
   async (job) => {
+    console.log(`Processing AI job ${job.id}:`, job.data);
+    
     const { conversationId, message, userId } = job.data;
     
     try {
@@ -15,6 +19,8 @@ const aiWorker = new Worker(
         userId
       );
       
+      console.log(`AI response generated for job ${job.id}:`, aiResponse);
+      
       // Return the result
       return {
         success: true,
@@ -22,14 +28,20 @@ const aiWorker = new Worker(
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Error processing AI job:', error);
-      throw error;
+      console.error(`Error processing AI job ${job.id}:`, error);
+      
+      // Return error information
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
     }
   },
   {
     connection: {
       host: process.env.REDIS_HOST,
-      port: parseInt(process.env.REDIS_PORT),
+      port: parseInt(process.env.REDIS_PORT) || 18908, // Fallback port
       username: process.env.REDIS_USERNAME,
       password: process.env.REDIS_PASSWORD
     },
@@ -43,7 +55,7 @@ const aiWorker = new Worker(
 
 // Listen for completed jobs
 aiWorker.on('completed', (job) => {
-  console.log(`AI job ${job.id} completed successfully`);
+  console.log(`AI job ${job.id} completed successfully with result:`, job.returnvalue);
 });
 
 // Listen for failed jobs
@@ -55,5 +67,7 @@ aiWorker.on('failed', (job, err) => {
 aiWorker.on('error', (err) => {
   console.error('AI worker error:', err);
 });
+
+console.log('AI Worker initialized and ready to process jobs');
 
 export default aiWorker;

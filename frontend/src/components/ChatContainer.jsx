@@ -11,18 +11,36 @@ const ChatContainer = () => {
   const [conversationId, setConversationId] = useState(null);
   const [userId] = useState(`user-${Math.floor(Math.random() * 1000000)}`);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [error, setError] = useState(null);
+  const [transport, setTransport] = useState('connecting');
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // Initialize socket connection
   useEffect(() => {
+    console.log('Initializing socket connection...');
+    
     // Connect to the backend server
-    socketRef.current = io('http://localhost:5000');
+    socketRef.current = io('http://localhost:5000', {
+      transports: ['websocket', 'polling'],
+      timeout: 20000,
+      forceNew: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000
+    });
     
     // Handle connection
     socketRef.current.on('connect', () => {
       console.log('Connected to server');
       setConnectionStatus('connected');
+      setError(null);
+      
+      // Get transport type
+      const transportType = socketRef.current.io.engine.transport.name;
+      setTransport(transportType);
+      console.log('Connected via:', transportType);
       
       // Create a new conversation
       socketRef.current.emit('createConversation', {
@@ -31,10 +49,24 @@ const ChatContainer = () => {
       });
     });
 
+    // Handle transport upgrade
+    socketRef.current.io.engine.on('upgrade', (transport) => {
+      setTransport(transport.name);
+      console.log('Transport upgraded to:', transport.name);
+    });
+
+    // Handle connection error
+    socketRef.current.on('connect_error', (err) => {
+      console.error('Connection error:', err);
+      setConnectionStatus('error');
+      setError(`Connection error: ${err.message}`);
+    });
+
     // Handle disconnection
-    socketRef.current.on('disconnect', () => {
-      console.log('Disconnected from server');
+    socketRef.current.on('disconnect', (reason) => {
+      console.log('Disconnected from server:', reason);
       setConnectionStatus('disconnected');
+      setTransport('disconnected');
     });
 
     // Handle conversation created
@@ -59,6 +91,7 @@ const ChatContainer = () => {
     // Handle errors
     socketRef.current.on('errorMessage', (error) => {
       console.error('Socket error:', error);
+      setError(error.message);
     });
 
     // Cleanup on unmount
@@ -86,6 +119,7 @@ const ChatContainer = () => {
     };
     
     console.log('Sending message:', message);
+    console.log('Current transport:', transport);
     
     // Add message to local state
     setMessages(prevMessages => [...prevMessages, message]);
@@ -108,14 +142,29 @@ const ChatContainer = () => {
             <h1 className="text-xl font-bold">AI Assistant</h1>
             <div className="flex items-center">
               <span className="text-xs text-primary-100 mr-2">
-                {connectionStatus === 'connected' ? 'Connected' : 'Connecting...'}
+                {connectionStatus === 'connected' ? 'Connected' : 
+                 connectionStatus === 'error' ? 'Error' : 'Connecting...'}
               </span>
-              <div className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${
+                connectionStatus === 'connected' ? 'bg-green-400' : 
+                connectionStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400'
+              }`}></div>
+              <span className="text-xs text-primary-100 ml-2">
+                ({transport})
+              </span>
             </div>
           </div>
         </div>
         <DarkModeToggle />
       </div>
+      
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+          <p className="font-bold">Error</p>
+          <p>{error}</p>
+        </div>
+      )}
       
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-800">

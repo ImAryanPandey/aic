@@ -5,9 +5,13 @@ import chatService from './chatService.js';
 // Initialize Groq
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+console.log('AI Service initialized with Groq');
+
 class AIService {
   // Generate AI response for a user message
   async generateResponse(conversationId, message, userId) {
+    console.log(`Generating AI response for conversation ${conversationId}`);
+    
     try {
       // Get conversation history for context
       const conversationHistory = await this.getConversationHistory(conversationId);
@@ -30,6 +34,7 @@ class AIService {
       // Update conversation context
       await this.updateContext(conversationId, message, response);
       
+      console.log(`AI response generated: ${response.substring(0, 100)}...`);
       return response;
     } catch (error) {
       console.error('Error generating AI response:', error);
@@ -43,6 +48,7 @@ class AIService {
       // First check if history is cached in Redis
       const cachedHistory = await redisService.get(`conversation:${conversationId}:history`);
       if (cachedHistory) {
+        console.log(`Using cached history for conversation ${conversationId}`);
         return cachedHistory;
       }
       
@@ -58,6 +64,7 @@ class AIService {
       // Cache in Redis for 5 minutes
       await redisService.set(`conversation:${conversationId}:history`, history, 300);
       
+      console.log(`Retrieved and cached ${history.length} messages for conversation ${conversationId}`);
       return history;
     } catch (error) {
       console.error('Error getting conversation history:', error);
@@ -67,10 +74,13 @@ class AIService {
 
   // Call Groq API
   async callGroqAPI(message, history, context) {
+    console.log('Calling Groq API...');
+    
     try {
       // Check for cached response first
       const cachedResponse = await redisService.getCachedAIResponse(message);
       if (cachedResponse) {
+        console.log('Using cached AI response');
         return cachedResponse;
       }
       
@@ -87,10 +97,12 @@ class AIService {
         }
       ];
       
+      console.log('Sending request to Groq with', messages.length, 'messages');
+      
       // Get completion from Groq
       const completion = await groq.chat.completions.create({
         messages,
-        model: "llama3-8b-8192", // You can also use "mixtral-8x7b-32768" or "gemma-7b-it"
+        model: "llama-3.1-8b-instant", // Updated model
         temperature: 0.7,
         max_tokens: 1024,
         top_p: 1,
@@ -98,6 +110,8 @@ class AIService {
       });
       
       const response = completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+      
+      console.log('Groq API response received:', response.substring(0, 100) + '...');
       
       // Cache the response
       await redisService.cacheAIResponse(message, response);
@@ -123,6 +137,8 @@ class AIService {
       
       // Save to Redis
       await redisService.setConversationContext(conversationId, context);
+      
+      console.log(`Updated context for conversation ${conversationId}`);
     } catch (error) {
       console.error('Error updating context:', error);
     }
