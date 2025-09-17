@@ -1,13 +1,14 @@
 import { Worker } from 'bullmq';
 import aiService from './services/aiService.js';
 import { createClient } from 'redis';
-import * as path from 'path';
+import path from 'path';
 import { config } from 'dotenv';
-import connectDB from './config/db.js'; // 👈 import your DB connection
+import connectDB from '../config/db.js';
 
-// Load environment variables
 const envPath = path.resolve(process.cwd(), '.env');
 config({ path: envPath });
+
+console.log('🏭 Initializing Worker...');
 
 // Debug env variables
 console.log('🔍 Environment Variables Check:', {
@@ -24,34 +25,48 @@ if (!process.env.REDIS_HOST || !process.env.REDIS_PORT || !process.env.REDIS_USE
   process.exit(1);
 }
 
-console.log('🏭 Initializing AI Worker...');
-
-// 👇 Connect to MongoDB before starting worker
+// Connect MongoDB before starting worker
 await connectDB();
-
 console.log('✅ MongoDB connection ready for Worker');
 
-// Create worker
-const aiWorker = new Worker(
+// Redis client (optional — not strictly needed because Worker takes connection config)
+const redisClient = createClient({
+  url: `redis://${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+  socket: {
+    reconnectStrategy: (retries) => Math.min(retries * 100, 30000),
+    connectTimeout: 10000,
+    commandTimeout: 5000
+  }
+});
+
+redisClient.on('error', (err) => {
+  console.error('❌ Worker Redis error:', err.message);
+});
+
+await redisClient.connect().then(() => {
+  console.log('✅ Worker Redis connected');
+}).catch(err => {
+  console.error('❌ Worker Redis connection failed:', err.message);
+});
+
+// BullMQ Worker
+const worker = new Worker(
   'ai-queue',
   async (job) => {
-    console.log(`🔄 Processing AI job ${job.id}:`, job.data);
+    console.log(`🔄 Processing job ${job.id}:`, job.data);
 
     const { conversationId, message, userId } = job.data;
 
     try {
       const aiResponse = await aiService.generateResponse(conversationId, message, userId);
-
-      console.log(`✅ AI response generated for job ${job.id}`);
-
+      console.log(`✅ Job ${job.id} response generated`);
       return {
         success: true,
         response: aiResponse,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      console.error(`❌ Error processing AI job ${job.id}:`, error);
-
+      console.error(`❌ Error processing job ${job.id}:`, error);
       return {
         success: false,
         error: error.message,
@@ -67,24 +82,21 @@ const aiWorker = new Worker(
       password: process.env.REDIS_PASSWORD
     },
     concurrency: 5,
-    limiter: {
-      max: 10,
-      duration: 15000
-    }
+    limiter: { max: 10, duration: 15000 }
   }
 );
 
 // Worker events
-aiWorker.on('completed', (job) => {
-  console.log(`✅ AI job ${job.id} completed`);
+worker.on('completed', (job) => {
+  console.log(`🎯 Job ${job.id} completed successfully`);
 });
 
-aiWorker.on('failed', (job, err) => {
-  console.error(`❌ AI job ${job.id} failed:`, err.message);
+worker.on('failed', (job, err) => {
+  console.error(`❌ Job ${job.id} failed:`, err);
 });
 
-aiWorker.on('error', (err) => {
-  console.error('❌ Worker error:', err.message);
+worker.on('error', (err) => {
+  console.error('❌ Worker error:', err);
 });
 
-console.log('✅ AI Worker ready');
+console.log('🚀 Worker initialized and ready to process jobs');
