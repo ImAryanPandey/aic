@@ -1,83 +1,80 @@
-import React, { useState, useEffect, useRef } from "react";
-import { io } from "socket.io-client";
-import MessageList from "./MessageList";
-import MessageInput from "./MessageInput";
-import { Loader2 } from "lucide-react";
+import React, { useState, useEffect, useRef } from 'react';
+import { io } from 'socket.io-client';
+import Header from './Header';
+import MessageList from './MessageList';
+import MessageInput from './MessageInput';
 
-const ChatContainer = () => {
+export default function ChatContainer() {
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState(null);
-  const [userId] = useState(`user-${Math.floor(Math.random() * 1000000)}`);
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
+  const userIdRef = useRef(`user-${Math.floor(Math.random() * 1000000)}`);
   const socketRef = useRef(null);
 
   useEffect(() => {
-    socketRef.current = io("http://localhost:5000", {
-      transports: ["websocket", "polling"],
+    const socket = io('http://localhost:5000', { transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setConnectionStatus('connected');
+      socket.emit('createConversation', { participants: [userIdRef.current], title: 'New Chat' });
     });
 
-    socketRef.current.on("connect", () => {
-      socketRef.current.emit("createConversation", {
-        participants: [userId],
-        title: "New Chat",
-      });
-    });
-
-    socketRef.current.on("conversationCreated", (data) => {
+    socket.on('conversationCreated', (data) => {
       setConversationId(data.conversationId);
-      socketRef.current.emit("joinConversation", data.conversationId);
+      socket.emit('joinConversation', data.conversationId);
     });
 
-    socketRef.current.on("messageReceived", (message) => {
-      setMessages((prev) => [...prev, message]);
+    socket.on('messageReceived', (msg) => {
+      setMessages((prev) => [...prev, msg]);
     });
 
-    socketRef.current.on("aiProcessing", (data) => {
-      setIsTyping(data.status === "processing");
+    socket.on('aiProcessing', (data) => {
+      setIsTyping(data.status === 'processing');
+      // optionally show "AI is typing" message
     });
 
-    return () => socketRef.current.disconnect();
-  }, [userId]);
+    socket.on('disconnect', () => setConnectionStatus('disconnected'));
 
-  const handleSendMessage = (content) => {
-    if (!content.trim() || !conversationId) return;
+    socket.on('connect_error', () => setConnectionStatus('error'));
 
-    const msg = {
+    return () => socket.disconnect();
+  }, []);
+
+  const sendMessage = (content) => {
+    if (!conversationId) return;
+    const message = {
       conversationId,
-      sender: userId,
+      sender: userIdRef.current,
       content,
-      messageType: "user",
+      messageType: 'user',
       timestamp: new Date().toISOString(),
     };
-
-    setMessages((prev) => [...prev, msg]);
-    socketRef.current.emit("newMessage", msg);
+    // optimistic display
+    setMessages((prev) => [...prev, message]);
+    socketRef.current.emit('newMessage', message);
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
-      {/* Header */}
-      <header className="p-4 bg-indigo-600 text-white shadow-md flex items-center justify-between">
-        <h1 className="text-lg font-semibold">🤖 AI Assistant</h1>
-        <span className="text-xs text-indigo-200">online</span>
-      </header>
-
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto p-4">
+    <div className="flex flex-col h-screen">
+      <Header connectionStatus={connectionStatus} />
+      <div className="flex-1 overflow-auto">
         <MessageList messages={messages} />
         {isTyping && (
-          <div className="flex items-center text-gray-500 text-sm mt-2">
-            <Loader2 className="animate-spin mr-2" size={16} /> AI is typing...
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="flex">
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+              </div>
+              AI is typing...
+            </div>
           </div>
         )}
-      </main>
-
-      {/* Input */}
-      <footer className="p-4 border-t bg-white dark:bg-gray-800">
-        <MessageInput onSendMessage={handleSendMessage} disabled={isTyping} />
-      </footer>
+      </div>
+      <MessageInput onSendMessage={sendMessage} disabled={isTyping} />
     </div>
   );
-};
-
-export default ChatContainer;
+}

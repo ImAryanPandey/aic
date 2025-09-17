@@ -1,34 +1,29 @@
-import React from "react";
+import React, { useEffect, useRef } from 'react';
+import Message from './Message';
 
-const MessageList = ({ messages }) => {
+export default function MessageList({ messages }) {
+  const endRef = useRef();
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   return (
-    <div className="space-y-3">
-      {messages.map((msg, idx) => (
-        <div
-          key={idx}
-          className={`flex ${
-            msg.messageType === "user" ? "justify-end" : "justify-start"
-          }`}
-        >
-          <div
-            className={`px-4 py-2 rounded-2xl max-w-xs shadow ${
-              msg.messageType === "user"
-                ? "bg-indigo-600 text-white rounded-br-none"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
-            }`}
-          >
-            {msg.content}
-            <div className="text-[10px] text-gray-400 mt-1">
-              {new Date(msg.timestamp).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
+    <div className="px-4 py-6 space-y-3">
+      {messages.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-gray-400 mt-12">
+          <div className="p-4 bg-white rounded-full shadow mb-4">
+            <svg className="w-10 h-10 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
+          <div className="text-lg font-medium">Start a conversation</div>
+          <div className="text-sm mt-1">Ask anything — this assistant is powered by an LLM.</div>
         </div>
-      ))}
+      ) : (
+        messages.map((m, i) => <Message key={`${m.timestamp}-${i}`} message={m} />)
+      )}
+      <div ref={endRef} />
     </div>
   );
-};
-
-export default MessageList;
+}

@@ -1,38 +1,16 @@
 import React from 'react';
 
-const Message = ({ message }) => {
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
+export default function Message({ message }) {
+  const mine = message.messageType === 'user';
   return (
-    <div
-      className={`flex ${
-        message.messageType === 'user' ? 'justify-end' : 'justify-start'
-      } animate-fade-in`}
-    >
-      <div
-        className={`message-bubble ${
-          message.messageType === 'user' 
-            ? 'user-message' 
-            : 'ai-message'
-        }`}
-      >
-        <div className="font-medium mb-1">
-          {message.messageType === 'user' ? 'You' : 'AI Assistant'}
-        </div>
+    <div className={`flex ${mine ? 'justify-end' : 'justify-start'} message-enter`}>
+      <div className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-sm
+        ${mine ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white dark:bg-gray-800 text-gray-900 rounded-bl-none'}`}>
         <div className="whitespace-pre-wrap">{message.content}</div>
-        <div className={`text-xs mt-1 ${
-          message.messageType === 'user' 
-            ? 'text-primary-100' 
-            : 'text-gray-500 dark:text-gray-400'
-        }`}>
-          {formatTime(message.timestamp)}
+        <div className={`text-[10px] mt-1 ${mine ? 'text-indigo-100' : 'text-gray-400'}`}>
+          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>
     </div>
   );
-};
-
-export default React.memo(Message);
+}
