@@ -2,10 +2,11 @@ import Conversation from '../models/Conversation.js';
 import Message from '../models/Messages.js';
 
 class ChatService {
-  // Create a new conversation
-  async createConversation(participants, title = 'New Conversation') {
+  async createConversation(participants, title = 'New Chat') {
     try {
+      const conversationId = `conv-${Date.now()}`;
       const conversation = new Conversation({
+        conversationId,
         participants,
         title
       });
@@ -13,39 +14,35 @@ class ChatService {
       await conversation.save();
       return conversation;
     } catch (error) {
-      throw new Error(`Error creating conversation: ${error.message}`);
+      console.error('❌ Error creating conversation:', error);
+      throw new Error(`Failed to create conversation: ${error.message}`);
     }
   }
 
-  // Get conversation by ID
   async getConversationById(conversationId) {
     try {
-      const conversation = await Conversation.findById(conversationId)
-        .populate('participants', 'username email');
-      
+      const conversation = await Conversation.findOne({ conversationId });
       if (!conversation) {
         throw new Error('Conversation not found');
       }
-      
       return conversation;
     } catch (error) {
-      throw new Error(`Error fetching conversation: ${error.message}`);
+      console.error('❌ Error fetching conversation:', error);
+      throw new Error(`Failed to fetch conversation: ${error.message}`);
     }
   }
 
-  // Get all messages in a conversation
   async getMessagesByConversationId(conversationId) {
     try {
       const messages = await Message.find({ conversation: conversationId })
         .sort({ timestamp: 1 });
-      
       return messages;
     } catch (error) {
-      throw new Error(`Error fetching messages: ${error.message}`);
+      console.error('❌ Error fetching messages:', error);
+      throw new Error(`Failed to fetch messages: ${error.message}`);
     }
   }
 
-  // Add a new message to a conversation
   async addMessage(conversationId, sender, content, messageType = 'user') {
     try {
       const message = new Message({
@@ -57,29 +54,28 @@ class ChatService {
       
       await message.save();
       
-      // Update the conversation's updatedAt field
-      await Conversation.findByIdAndUpdate(conversationId, {
-        updatedAt: Date.now()
-      });
+      await Conversation.findOneAndUpdate(
+        { conversationId },
+        { updatedAt: Date.now() }
+      );
       
       return message;
     } catch (error) {
-      throw new Error(`Error adding message: ${error.message}`);
+      console.error('❌ Error adding message:', error);
+      throw new Error(`Failed to add message: ${error.message}`);
     }
   }
 
-  // Get all conversations for a user
   async getUserConversations(userId) {
     try {
       const conversations = await Conversation.find({
         participants: userId
-      })
-        .populate('participants', 'username email')
-        .sort({ updatedAt: -1 });
+      }).sort({ updatedAt: -1 });
       
       return conversations;
     } catch (error) {
-      throw new Error(`Error fetching user conversations: ${error.message}`);
+      console.error('❌ Error fetching user conversations:', error);
+      throw new Error(`Failed to fetch user conversations: ${error.message}`);
     }
   }
 }

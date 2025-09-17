@@ -7,13 +7,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "node -r dotenv/config --watch src/server.js",
-    "worker": "node src/worker.js"
+    "worker": "node -r dotenv/config src/worker.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.15.0",
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.58.5",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",

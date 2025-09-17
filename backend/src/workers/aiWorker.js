@@ -1,9 +1,31 @@
 import { Worker } from 'bullmq';
 import aiService from '../services/aiService.js';
+import { createClient } from 'redis';
 
 console.log('Initializing AI Worker...');
 
-// Create a worker to process AI requests
+// Create Redis client for BullMQ with latest options
+const redisClient = createClient({
+  url: `redis://${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+  socket: {
+    reconnectStrategy: (retries) => Math.min(retries * 100, 30000),
+    connectTimeout: 10000,
+    commandTimeout: 5000,
+    keepAlive: 30000
+  }
+});
+
+// Handle Redis connection errors
+redisClient.on('error', (err) => {
+  console.error('Worker Redis client error:', err);
+});
+
+// Connect to Redis
+redisClient.connect().catch(err => {
+  console.error('Worker failed to connect to Redis:', err);
+});
+
+// Create a worker with the latest BullMQ v5 options
 const aiWorker = new Worker(
   'ai-queue',
   async (job) => {
@@ -41,15 +63,19 @@ const aiWorker = new Worker(
   {
     connection: {
       host: process.env.REDIS_HOST,
-      port: parseInt(process.env.REDIS_PORT) || 18908, // Fallback port
+      port: parseInt(process.env.REDIS_PORT) || 18908,
       username: process.env.REDIS_USERNAME,
       password: process.env.REDIS_PASSWORD
     },
-    concurrency: 5, // Process 5 jobs simultaneously
+    concurrency: 5,
     limiter: {
-      max: 10, // Max 10 jobs per 15 seconds
+      max: 10,
       duration: 15000
-    }
+    },
+    // Use the latest BullMQ v5 options
+    removeOnComplete: 10,
+    removeOnFail: 5,
+    drainDelay: 5
   }
 );
 

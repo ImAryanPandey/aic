@@ -1,8 +1,6 @@
 import chatService from '../services/chatService.js';
-import { addAIJob } from '../services/queueService.js';
 
 class ChatController {
-  // Create a new conversation
   async createConversation(req, res) {
     try {
       const { participants, title } = req.body;
@@ -27,11 +25,9 @@ class ChatController {
     }
   }
 
-  // Get conversation by ID
   async getConversation(req, res) {
     try {
       const { conversationId } = req.params;
-      
       const conversation = await chatService.getConversationById(conversationId);
       
       res.status(200).json({
@@ -46,11 +42,9 @@ class ChatController {
     }
   }
 
-  // Get messages for a conversation
   async getMessages(req, res) {
     try {
       const { conversationId } = req.params;
-      
       const messages = await chatService.getMessagesByConversationId(conversationId);
       
       res.status(200).json({
@@ -65,7 +59,6 @@ class ChatController {
     }
   }
 
-  // Add a new message and get AI response
   async addMessage(req, res) {
     try {
       const { conversationId, sender, content, messageType = 'user' } = req.body;
@@ -76,28 +69,16 @@ class ChatController {
         });
       }
       
-      // Save user message
-      const userMessage = await chatService.addMessage(
+      const message = await chatService.addMessage(
         conversationId, 
         sender, 
         content, 
         messageType
       );
       
-      // Add AI processing job to queue
-      const jobId = await addAIJob({
-        conversationId,
-        message: content,
-        userId: sender
-      });
-      
       res.status(201).json({
         success: true,
-        data: {
-          userMessage,
-          jobId,
-          message: "Message sent and AI response is being processed"
-        }
+        data: message
       });
     } catch (error) {
       res.status(500).json({
@@ -107,11 +88,9 @@ class ChatController {
     }
   }
 
-  // Get user conversations
   async getUserConversations(req, res) {
     try {
       const { userId } = req.params;
-      
       const conversations = await chatService.getUserConversations(userId);
       
       res.status(200).json({
