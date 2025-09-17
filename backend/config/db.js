@@ -13,8 +13,7 @@ const connectDB = async () => {
 
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
 
-    // Connection monitoring
-    mongoose.connection.on('error', err => {
+    mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
     });
 

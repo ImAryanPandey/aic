@@ -1,182 +1,81 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
-import MessageList from './MessageList';
-import MessageInput from './MessageInput';
-import TypingIndicator from './TypingIndicator';
-import DarkModeToggle from './DarkModeToggle';
+import React, { useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
+import MessageList from "./MessageList";
+import MessageInput from "./MessageInput";
+import { Loader2 } from "lucide-react";
 
 const ChatContainer = () => {
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState(null);
   const [userId] = useState(`user-${Math.floor(Math.random() * 1000000)}`);
-  const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const [error, setError] = useState(null);
-  const [transport, setTransport] = useState('connecting');
   const socketRef = useRef(null);
-  const messagesEndRef = useRef(null);
 
-  // Initialize socket connection
   useEffect(() => {
-    console.log('Initializing socket connection...');
-    
-    // Connect to the backend server
-    socketRef.current = io('http://localhost:5000', {
-      transports: ['websocket', 'polling'],
-      timeout: 20000,
-      forceNew: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000
+    socketRef.current = io("http://localhost:5000", {
+      transports: ["websocket", "polling"],
     });
-    
-    // Handle connection
-    socketRef.current.on('connect', () => {
-      console.log('Connected to server');
-      setConnectionStatus('connected');
-      setError(null);
-      
-      // Get transport type
-      const transportType = socketRef.current.io.engine.transport.name;
-      setTransport(transportType);
-      console.log('Connected via:', transportType);
-      
-      // Create a new conversation
-      socketRef.current.emit('createConversation', {
+
+    socketRef.current.on("connect", () => {
+      socketRef.current.emit("createConversation", {
         participants: [userId],
-        title: 'New Chat'
+        title: "New Chat",
       });
     });
 
-    // Handle transport upgrade
-    socketRef.current.io.engine.on('upgrade', (transport) => {
-      setTransport(transport.name);
-      console.log('Transport upgraded to:', transport.name);
-    });
-
-    // Handle connection error
-    socketRef.current.on('connect_error', (err) => {
-      console.error('Connection error:', err);
-      setConnectionStatus('error');
-      setError(`Connection error: ${err.message}`);
-    });
-
-    // Handle disconnection
-    socketRef.current.on('disconnect', (reason) => {
-      console.log('Disconnected from server:', reason);
-      setConnectionStatus('disconnected');
-      setTransport('disconnected');
-    });
-
-    // Handle conversation created
-    socketRef.current.on('conversationCreated', (data) => {
-      console.log('Conversation created:', data);
+    socketRef.current.on("conversationCreated", (data) => {
       setConversationId(data.conversationId);
-      socketRef.current.emit('joinConversation', data.conversationId);
+      socketRef.current.emit("joinConversation", data.conversationId);
     });
 
-    // Handle received messages
-    socketRef.current.on('messageReceived', (message) => {
-      console.log('Message received:', message);
-      setMessages(prevMessages => [...prevMessages, message]);
+    socketRef.current.on("messageReceived", (message) => {
+      setMessages((prev) => [...prev, message]);
     });
 
-    // Handle AI processing status
-    socketRef.current.on('aiProcessing', (data) => {
-      console.log('AI processing:', data);
-      setIsTyping(data.status === 'processing');
+    socketRef.current.on("aiProcessing", (data) => {
+      setIsTyping(data.status === "processing");
     });
 
-    // Handle errors
-    socketRef.current.on('errorMessage', (error) => {
-      console.error('Socket error:', error);
-      setError(error.message);
-    });
-
-    // Cleanup on unmount
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
+    return () => socketRef.current.disconnect();
   }, [userId]);
-
-  // Scroll to bottom of messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
 
   const handleSendMessage = (content) => {
     if (!content.trim() || !conversationId) return;
-    
-    const message = {
+
+    const msg = {
       conversationId,
       sender: userId,
       content,
-      messageType: 'user',
-      timestamp: new Date().toISOString()
+      messageType: "user",
+      timestamp: new Date().toISOString(),
     };
-    
-    console.log('Sending message:', message);
-    console.log('Current transport:', transport);
-    
-    // Add message to local state
-    setMessages(prevMessages => [...prevMessages, message]);
-    
-    // Send message to server
-    socketRef.current.emit('newMessage', message);
+
+    setMessages((prev) => [...prev, msg]);
+    socketRef.current.emit("newMessage", msg);
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-primary-600 dark:bg-primary-800 text-white p-4 shadow-md flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold">AI Assistant</h1>
-            <div className="flex items-center">
-              <span className="text-xs text-primary-100 mr-2">
-                {connectionStatus === 'connected' ? 'Connected' : 
-                 connectionStatus === 'error' ? 'Error' : 'Connecting...'}
-              </span>
-              <div className={`w-2 h-2 rounded-full ${
-                connectionStatus === 'connected' ? 'bg-green-400' : 
-                connectionStatus === 'error' ? 'bg-red-400' : 'bg-yellow-400'
-              }`}></div>
-              <span className="text-xs text-primary-100 ml-2">
-                ({transport})
-              </span>
-            </div>
-          </div>
-        </div>
-        <DarkModeToggle />
-      </div>
-      
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-        </div>
-      )}
-      
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-800">
+      <header className="p-4 bg-indigo-600 text-white shadow-md flex items-center justify-between">
+        <h1 className="text-lg font-semibold">🤖 AI Assistant</h1>
+        <span className="text-xs text-indigo-200">online</span>
+      </header>
+
+      {/* Messages */}
+      <main className="flex-1 overflow-y-auto p-4">
         <MessageList messages={messages} />
-        {isTyping && <TypingIndicator />}
-        <div ref={messagesEndRef} />
-      </div>
-      
-      {/* Input Area */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        {isTyping && (
+          <div className="flex items-center text-gray-500 text-sm mt-2">
+            <Loader2 className="animate-spin mr-2" size={16} /> AI is typing...
+          </div>
+        )}
+      </main>
+
+      {/* Input */}
+      <footer className="p-4 border-t bg-white dark:bg-gray-800">
         <MessageInput onSendMessage={handleSendMessage} disabled={isTyping} />
-      </div>
+      </footer>
     </div>
   );
 };

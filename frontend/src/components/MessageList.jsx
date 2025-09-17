@@ -1,26 +1,34 @@
-import React from 'react';
-import Message from './Message';
+import React from "react";
 
 const MessageList = ({ messages }) => {
   return (
-    <div className="space-y-4">
-      {messages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-          <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
+    <div className="space-y-3">
+      {messages.map((msg, idx) => (
+        <div
+          key={idx}
+          className={`flex ${
+            msg.messageType === "user" ? "justify-end" : "justify-start"
+          }`}
+        >
+          <div
+            className={`px-4 py-2 rounded-2xl max-w-xs shadow ${
+              msg.messageType === "user"
+                ? "bg-indigo-600 text-white rounded-br-none"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none"
+            }`}
+          >
+            {msg.content}
+            <div className="text-[10px] text-gray-400 mt-1">
+              {new Date(msg.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
           </div>
-          <p className="text-lg font-medium">Start a conversation</p>
-          <p className="text-sm mt-1">Send a message to begin chatting with AI</p>
         </div>
-      ) : (
-        messages.map((message, index) => (
-          <Message key={`${message.timestamp}-${index}`} message={message} />
-        ))
-      )}
+      ))}
     </div>
   );
 };
 
-export default React.memo(MessageList);
+export default MessageList;
