@@ -1,41 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
-const DarkModeToggle = () => {
-  const [darkMode, setDarkMode] = useState(false);
-
+export default function DarkModeToggle() {
+  const [dark, setDark] = useState(false);
   useEffect(() => {
-    // Check system preference and local storage
-    const isDark = localStorage.getItem('darkMode') === 'true' || 
-      (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle('dark', isDark);
+    const saved = localStorage.getItem('darkMode');
+    const prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const enabled = saved ? saved === 'true' : prefers;
+    setDark(enabled);
+    document.documentElement.classList.toggle('dark', enabled);
   }, []);
 
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    document.documentElement.classList.toggle('dark', newMode);
-    localStorage.setItem('darkMode', newMode.toString());
+  const toggle = () => {
+    const n = !dark;
+    setDark(n);
+    document.documentElement.classList.toggle('dark', n);
+    localStorage.setItem('darkMode', n.toString());
   };
 
   return (
-    <button
-      onClick={toggleDarkMode}
-      className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-      aria-label="Toggle dark mode"
-    >
-      {darkMode ? (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-        </svg>
+    <button onClick={toggle} aria-label="Toggle dark mode" className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+      {dark ? (
+        <svg className="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><path d="M6.76 4.84l-1.8-1.79L3.47 4.54l1.79 1.8 1.5-1.5zm10.48 0l1.79-1.79 1.5 1.5-1.79 1.79-1.5-1.5zM12 4V1h0v3zM4 12H1v0h3zm19 0h-3v0h3zM6.76 19.16l-1.79 1.79 1.5 1.5 1.79-1.79-1.5-1.5zM19.24 19.16l1.5 1.5 1.79-1.79-1.5-1.5-1.79 1.79zM12 20v3h0v-3zM16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
       ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-        </svg>
+        <svg className="w-5 h-5 text-gray-700 dark:text-gray-200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a9.93 9.93 0 00-7.07 2.93A10 10 0 1012 2z" /></svg>
       )}
     </button>
   );
-};
-
-export default DarkModeToggle;
+}
