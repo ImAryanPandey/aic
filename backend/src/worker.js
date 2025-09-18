@@ -1,11 +1,10 @@
 // src/worker.js
-import { Worker } from 'bullmq';
+import { Worker, Queue } from 'bullmq';
 import aiService from './services/aiService.js';
 import connectDB from '../config/db.js';
 import { config } from 'dotenv';
 import * as path from 'path';
 
-// Load .env manually (ensures it works no matter where you run worker)
 const envPath = path.resolve(process.cwd(), '.env');
 config({ path: envPath });
 
@@ -15,7 +14,16 @@ console.log('🏭 Initializing AI Worker...');
 await connectDB();
 console.log('✅ MongoDB connection ready for Worker');
 
-// Create worker
+// Queue used to send events back to server
+const aiEventsQueue = new Queue('ai-events', {
+  connection: {
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT) || 18908,
+    username: process.env.REDIS_USERNAME,
+    password: process.env.REDIS_PASSWORD
+  }
+});
+
 const aiWorker = new Worker(
   'ai-queue',
   async (job) => {
@@ -28,19 +36,22 @@ const aiWorker = new Worker(
 
       console.log(`✅ AI response generated for job ${job.id}`);
 
+      // Persisted message is already saved by aiService; now send an event for server to emit to clients
+      await aiEventsQueue.add('ai-response', {
+        conversationId,
+        sender: 'ai',
+        content: aiResponse,
+        messageType: 'ai',
+        timestamp: new Date().toISOString()
+      });
+
       return {
         success: true,
-        response: aiResponse,
-        timestamp: new Date().toISOString(),
+        response: aiResponse
       };
     } catch (error) {
       console.error(`❌ Error processing AI job ${job.id}:`, error);
-
-      return {
-        success: false,
-        error: error.message,
-        timestamp: new Date().toISOString(),
-      };
+      throw error;
     }
   },
   {
@@ -48,27 +59,18 @@ const aiWorker = new Worker(
       host: process.env.REDIS_HOST,
       port: parseInt(process.env.REDIS_PORT) || 18908,
       username: process.env.REDIS_USERNAME,
-      password: process.env.REDIS_PASSWORD,
+      password: process.env.REDIS_PASSWORD
     },
-    concurrency: 5,
-    limiter: {
-      max: 10,
-      duration: 15000,
-    },
+    concurrency: 5
   }
 );
 
-// Worker events
 aiWorker.on('completed', (job) => {
   console.log(`✅ AI job ${job.id} completed`);
 });
 
 aiWorker.on('failed', (job, err) => {
   console.error(`❌ AI job ${job.id} failed:`, err.message);
-});
-
-aiWorker.on('error', (err) => {
-  console.error('❌ Worker error:', err.message);
 });
 
 console.log('✅ AI Worker ready');

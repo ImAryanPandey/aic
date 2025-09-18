@@ -33,7 +33,7 @@ importers:
         specifier: ^5.8.2
         version: 5.8.2
       socket.io:
-        specifier: ^4.8.1
+        specifier: '4'
         version: 4.8.1
 
 packages:
