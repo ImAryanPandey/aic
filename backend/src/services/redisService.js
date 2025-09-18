@@ -1,17 +1,15 @@
+// src/services/redisService.js
 import redisClient from '../../config/redis.js';
 
 class RedisService {
-  // Set a key-value pair with optional expiration (in seconds)
   async set(key, value, expireInSeconds) {
     try {
       const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-      
       if (expireInSeconds) {
         await redisClient.set(key, stringValue, { EX: expireInSeconds });
       } else {
         await redisClient.set(key, stringValue);
       }
-      
       return true;
     } catch (error) {
       console.error('Redis set error:', error);
@@ -19,17 +17,14 @@ class RedisService {
     }
   }
 
-  // Get value by key
   async get(key) {
     try {
       const value = await redisClient.get(key);
-      
       if (!value) return null;
-      
       try {
         return JSON.parse(value);
-      } catch (e) {
-        return value; // Return as string if not JSON
+      } catch {
+        return value;
       }
     } catch (error) {
       console.error('Redis get error:', error);
@@ -37,7 +32,6 @@ class RedisService {
     }
   }
 
-  // Delete a key
   async delete(key) {
     try {
       await redisClient.del(key);
@@ -48,18 +42,15 @@ class RedisService {
     }
   }
 
-  // Check if key exists
   async exists(key) {
     try {
-      const result = await redisClient.exists(key);
-      return result === 1;
+      return (await redisClient.exists(key)) === 1;
     } catch (error) {
       console.error('Redis exists error:', error);
       return false;
     }
   }
 
-  // Set expiration for a key
   async expire(key, seconds) {
     try {
       await redisClient.expire(key, seconds);
@@ -70,7 +61,6 @@ class RedisService {
     }
   }
 
-  // Get all keys matching a pattern
   async keys(pattern) {
     try {
       return await redisClient.keys(pattern);
@@ -80,50 +70,45 @@ class RedisService {
     }
   }
 
-  // Store conversation context
   async setConversationContext(conversationId, context) {
-    const key = `conversation:${conversationId}:context`;
-    return await this.set(key, context, 3600); // Expire in 1 hour
+    return await this.set(`conversation:${conversationId}:context`, context, 3600);
   }
 
-  // Get conversation context
   async getConversationContext(conversationId) {
-    const key = `conversation:${conversationId}:context`;
-    return await this.get(key);
+    return await this.get(`conversation:${conversationId}:context`);
   }
 
-  // Store user session
   async setUserSession(userId, sessionData) {
-    const key = `user:${userId}:session`;
-    return await this.set(key, sessionData, 86400); // Expire in 24 hours
+    return await this.set(`user:${userId}:session`, sessionData, 86400);
   }
 
-  // Get user session
   async getUserSession(userId) {
-    const key = `user:${userId}:session`;
-    return await this.get(key);
+    return await this.get(`user:${userId}:session`);
   }
 
-  // Cache AI response
   async cacheAIResponse(query, response) {
-    // Create a hash of the query to use as key
     const key = `ai:response:${this.hashString(query)}`;
-    return await this.set(key, response, 1800); // Expire in 30 minutes
+    return await this.set(key, response, 1800);
   }
 
-  // Get cached AI response
   async getCachedAIResponse(query) {
-    const key = `ai:response:${this.hashString(query)}`;
-    return await this.get(key);
+    return await this.get(`ai:response:${this.hashString(query)}`);
   }
 
-  // Simple hash function for creating consistent keys
+  async appendToHistory(conversationId, role, content) {
+    const key = `conversation:${conversationId}:history`;
+    let history = (await this.get(key)) || [];
+    history = [...history, { role, content }];
+    await this.set(key, history, 300);
+    return history;
+  }
+
   hashString(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
+      hash &= hash;
     }
     return Math.abs(hash).toString();
   }

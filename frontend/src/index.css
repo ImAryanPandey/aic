@@ -36,3 +36,7 @@
   50% { transform: translateY(-4px); opacity: 1; }
   100% { transform: translateY(0); opacity: 0.4; }
 }
+
+html.dark {
+  color-scheme: dark;
+}

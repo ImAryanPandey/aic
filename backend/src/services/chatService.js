@@ -1,3 +1,4 @@
+// src/services/chatService.js
 import Conversation from '../models/Conversation.js';
 import Message from '../models/Messages.js';
 
@@ -10,7 +11,7 @@ class ChatService {
         participants,
         title
       });
-      
+
       await conversation.save();
       return conversation;
     } catch (error) {
@@ -22,9 +23,7 @@ class ChatService {
   async getConversationById(conversationId) {
     try {
       const conversation = await Conversation.findOne({ conversationId });
-      if (!conversation) {
-        throw new Error('Conversation not found');
-      }
+      if (!conversation) throw new Error('Conversation not found');
       return conversation;
     } catch (error) {
       console.error('❌ Error fetching conversation:', error);
@@ -34,9 +33,7 @@ class ChatService {
 
   async getMessagesByConversationId(conversationId) {
     try {
-      const messages = await Message.find({ conversation: conversationId })
-        .sort({ timestamp: 1 });
-      return messages;
+      return await Message.find({ conversation: conversationId }).sort({ timestamp: 1 });
     } catch (error) {
       console.error('❌ Error fetching messages:', error);
       throw new Error(`Failed to fetch messages: ${error.message}`);
@@ -47,18 +44,18 @@ class ChatService {
     try {
       const message = new Message({
         conversation: conversationId,
-        sender,
+        sender: sender.toLowerCase(), // normalize sender
         content,
         messageType
       });
-      
+
       await message.save();
-      
+
       await Conversation.findOneAndUpdate(
         { conversationId },
         { updatedAt: Date.now() }
       );
-      
+
       return message;
     } catch (error) {
       console.error('❌ Error adding message:', error);
@@ -68,11 +65,7 @@ class ChatService {
 
   async getUserConversations(userId) {
     try {
-      const conversations = await Conversation.find({
-        participants: userId
-      }).sort({ updatedAt: -1 });
-      
-      return conversations;
+      return await Conversation.find({ participants: userId }).sort({ updatedAt: -1 });
     } catch (error) {
       console.error('❌ Error fetching user conversations:', error);
       throw new Error(`Failed to fetch user conversations: ${error.message}`);

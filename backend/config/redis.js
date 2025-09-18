@@ -1,12 +1,14 @@
 import { createClient } from 'redis';
 
-// Check if all required environment variables are present
-if (!process.env.REDIS_HOST || !process.env.REDIS_PORT || !process.env.REDIS_USERNAME || !process.env.REDIS_PASSWORD) {
-  console.error('❌ Redis environment variables are missing!');
-  console.error('Required: REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD');
-  process.exit(1);
-}
+// ✅ Validate env vars
+['REDIS_HOST', 'REDIS_PORT', 'REDIS_USERNAME', 'REDIS_PASSWORD'].forEach((key) => {
+  if (!process.env[key]) {
+    console.error(`❌ Missing Redis environment variable: ${key}`);
+    process.exit(1);
+  }
+});
 
+// ⚡ General Redis client (for caching, redisService etc.)
 const redisClient = createClient({
   url: `redis://${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
   pingInterval: 10000,
@@ -14,24 +16,24 @@ const redisClient = createClient({
     reconnectStrategy: (retries) => Math.min(retries * 100, 30000),
     connectTimeout: 10000,
     commandTimeout: 5000,
-  }
+  },
 });
 
-redisClient.on('error', (err) => {
-  console.error('❌ Redis Client Error:', err.message);
+redisClient.on('error', (err) => console.error('❌ Redis Error:', err.message));
+redisClient.on('connect', () => console.log('✅ Connected to Redis Cloud'));
+redisClient.on('reconnecting', () => console.log('🔄 Reconnecting to Redis...'));
+
+await redisClient.connect().catch((err) => {
+  console.error('❌ Redis connection failed:', err.message);
+  process.exit(1);
 });
 
-redisClient.on('connect', () => {
-  console.log('✅ Connected to Redis Cloud');
-});
+// ⚡ BullMQ-compatible connection config
+const redisConnection = {
+  host: process.env.REDIS_HOST,
+  port: parseInt(process.env.REDIS_PORT, 10),
+  username: process.env.REDIS_USERNAME,
+  password: process.env.REDIS_PASSWORD,
+};
 
-redisClient.on('reconnecting', () => {
-  console.log('🔄 Reconnecting to Redis...');
-});
-
-// Connect to Redis
-redisClient.connect().catch(err => {
-  console.error('❌ Failed to connect to Redis:', err.message);
-});
-
-export default redisClient;
+export { redisClient, redisConnection };
